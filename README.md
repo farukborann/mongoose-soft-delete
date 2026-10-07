@@ -44,9 +44,9 @@ const TestSchema = new Schema({
 });
 
 TestSchema.plugin(softDeletePlugin);
-const Test =  mongoose.model("Test", TestSchema);
+const TestModel =  mongoose.model("Test", TestSchema);
 
-const test = new Test({name: 'hello', lastName: "world"});
+const test = new TestModel({name: 'hello', lastName: "world"});
 
 /*** returns an object containing the number of softDeleted elements ***/
 /***
@@ -56,7 +56,7 @@ const test = new Test({name: 'hello', lastName: "world"});
     the argument options is optional
 ***/
 const options = { validateBeforeSave: false };
-const deleted = await Test.softDelete({ _id: test._id, name: test.name }, options);
+const deleted = await TestModel.softDelete({ _id: test._id, name: test.name }, options);
 /** 
  const deleted = await Test.softDelete({ _id: test._id, name: test.name }); is also valid
 **/
@@ -65,16 +65,16 @@ const deleted = await Test.softDelete({ _id: test._id, name: test.name }, option
 /***
     {restored: number} 
 ***/
-const restored = await Test.restore({ _id: test._id, name: test.name });
+const restored = await TestModel.restore({ _id: test._id, name: test.name });
 
 /*** returns all deleted elements ***/
-const deletedElements = await Test.findDeleted();
+const deletedElements = await TestModel.findDeleted();
 
 /*** returns all available elements (not deleted) ***/
-const availableElements = await Test.find();
+const availableElements = await TestModel.find();
 
 /*** counts all available elements (not deleted) ***/
-const countAvailable = await Test.count();
+const countAvailable = await TestModel.count();
 
 /*** findById returns the document whether deleted or not  ***/
 ```
@@ -111,7 +111,7 @@ const test = await new this.testModel({name: 'hello', lastName: 'world'});
     the argument options is optional
 ***/
 const options = { validateBeforeSave: false };
-const deleted = await Test.softDelete({ _id: test._id, name: test.name }, options);
+const deleted = await this.testModel.softDelete({ _id: test._id, name: test.name }, options);
 /** 
  const deleted = await Test.softDelete({ _id: test._id, name: test.name }); is also valid
 **/
@@ -129,10 +129,44 @@ const deletedElements = await this.testModel.findDeleted();
 const availableElements = await this.testModel.find();
 
 /*** counts all available elements (not deleted) ***/
-const countAvailable = await Test.count();
+const countAvailable = await this.test.count();
 
 /*** findById returns the document whether deleted or not  ***/
+
+/*** NEW in v2.0.0: Aggregation pipeline operations now automatically filter out soft-deleted documents ***/
+const aggregationResults = await this.testModel.aggregate([
+    { $match: { name: 'hello' } }, // Soft-deleted documents are automatically excluded
+    { $lookup: { from: 'other', localField: '_id', foreignField: 'testId', as: 'related' } } // Lookup also respects soft-delete
+]);
+
+/*** NEW in v2.0.0: distinct() method now supports soft-delete filtering ***/
+const distinctNames = await this.testModel.distinct('name'); // Returns only non-deleted documents
+
+/*** NEW in v2.0.0: findOneAndUpdate() method now supports soft-delete filtering ***/
+const updated = await this.testModel.findOneAndUpdate(
+    { name: 'hello' }, 
+    { lastName: 'updated' }, 
+    { new: true }
+); // Will only find and update non-deleted documents
 ```
+
+## What's New
+
+### Version 2.0.0 🎉
+
+**⚠️ Breaking Changes:**
+- Enhanced aggregation pipeline support with automatic soft-delete filtering
+- Improved query hooks for better performance and consistency
+
+**New Features:**
+- **Aggregation Pipeline Support**: `$match` and `$lookup` stages now automatically exclude soft-deleted documents
+- **Enhanced Method Support**: Added soft-delete aware hooks for:
+  - `distinct()` - Returns only non-deleted documents
+  - `findOneAndUpdate()` - Only operates on non-deleted documents
+- **Improved Query Performance**: Optimized query hooks for better database performance
+
+**Migration Guide:**
+If you were previously working around soft-delete filtering in aggregation pipelines, you can now remove those manual filters as they're handled automatically.
 
 ## Author
 

@@ -1,4 +1,16 @@
-import mongoose, { CallbackError, SaveOptions } from 'mongoose';
+import mongoose, { CallbackError, MongooseQueryMiddleware, SaveOptions } from 'mongoose';
+import { overwriteAggregatePipeline } from './utils';
+
+const QUERY_HOOK_METHODS: MongooseQueryMiddleware[] = [
+  'find',
+  'findOne',
+  'count',
+  'countDocuments',
+  'updateMany',
+  'updateOne',
+  'findOneAndUpdate',
+  'distinct',
+];
 
 export const softDeletePlugin = (schema: mongoose.Schema) => {
   schema.add({
@@ -14,35 +26,21 @@ export const softDeletePlugin = (schema: mongoose.Schema) => {
   });
 
   // @ts-ignore
-  schema.pre('find',
+  schema.pre(QUERY_HOOK_METHODS,
     async function (this, next: (err?: CallbackError) => void) {
       if (this.getFilter().isDeleted === true) {
         return next();
       }
-      this.setQuery({ ...this.getFilter(), isDeleted: false });
+      this.setQuery({ ...this.getFilter(), isDeleted: { $ne: true } });
       next();
     },
   );
 
-  // @ts-ignore
-  schema.pre('count',
-    async function (this, next: (err?: CallbackError) => void) {
-      if (this.getFilter().isDeleted === true) {
-        return next();
-      }
-      this.setQuery({ ...this.getFilter(), isDeleted: false });
-      next();
-    })
-
-  // @ts-ignore
-  schema.pre('countDocuments',
-    async function (this, next: (err?: CallbackError) => void) {
-      if (this.getFilter().isDeleted === true) {
-        return next();
-      }
-      this.setQuery({ ...this.getFilter(), isDeleted: false });
-      next();
-    })
+  schema.pre('aggregate', function (next) {
+    if (this.options.skipHook) return next();
+    overwriteAggregatePipeline(this.pipeline());
+    next();
+  });
 
   schema.static('findDeleted', async function () {
     return this.find({ isDeleted: true });
